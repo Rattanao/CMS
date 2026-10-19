@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Check EDI CMS</title>
+<link rel="icon" href="docs/assets/hal-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&family=Anuphan:wght@600;700&display=swap">
 <style>
@@ -56,7 +57,7 @@ code { background: var(--code); padding: 1px 6px; border-radius: 4px; }
 
 .head { display: grid; gap: 14px; padding-block: 8px 4px; }
 .brand { justify-self: start; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; display: flex; }
-.brand img { display: block; height: 44px; width: auto; }
+.brand img { display: block; height: 40px; width: auto; max-width: 100%; }
 .tag { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .lede { color: var(--muted); max-width: 62ch; font-size: 1.05rem; }
 .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.85rem; }
@@ -120,7 +121,7 @@ footer { color: var(--muted); font-size: 0.85rem; display: grid; gap: 4px; }
 
 <div class="wrap">
   <header class="head">
-    <span class="brand"><img src="docs/hal-logo.png" alt="Heung A Line Co., Ltd." width="224" height="55"></span>
+    <span class="brand"><img src="docs/assets/hal-logo.png" alt="Heung A Line"></span>
     <div class="tag">เครื่องมือตรวจเอกสารขาเข้าเรือ · ใบขนสินค้าขาเข้า</div>
     <h1>Check EDI CMS</h1>
     <p class="lede">เทียบ MANIFEST ของสายเรือกับ ENTER ของลูกค้าให้ครบทุก B/L แล้วออกรายงาน EDI.xlsx แบบใส่สี จุดไหนไม่ตรงเห็นได้ทันทีก่อนยื่นใบขน</p>
