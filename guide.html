@@ -55,6 +55,8 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 code { background: var(--code); padding: 1px 6px; border-radius: 4px; }
 
 .head { display: grid; gap: 14px; padding-block: 8px 4px; }
+.brand { justify-self: start; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; display: flex; }
+.brand img { display: block; height: 44px; width: auto; }
 .tag { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .lede { color: var(--muted); max-width: 62ch; font-size: 1.05rem; }
 .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.85rem; }
@@ -118,6 +120,7 @@ footer { color: var(--muted); font-size: 0.85rem; display: grid; gap: 4px; }
 
 <div class="wrap">
   <header class="head">
+    <span class="brand"><img src="docs/hal-logo.png" alt="Heung A Line Co., Ltd." width="224" height="55"></span>
     <div class="tag">เครื่องมือตรวจเอกสารขาเข้าเรือ · ใบขนสินค้าขาเข้า</div>
     <h1>Check EDI CMS</h1>
     <p class="lede">เทียบ MANIFEST ของสายเรือกับ ENTER ของลูกค้าให้ครบทุก B/L แล้วออกรายงาน EDI.xlsx แบบใส่สี จุดไหนไม่ตรงเห็นได้ทันทีก่อนยื่นใบขน</p>
