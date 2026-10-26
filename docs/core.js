@@ -189,7 +189,7 @@
   }
   function sameDetail(a, b) {
     // 'CARGO MOVEMENT n' เป็นรหัสศุลกากร ไม่ใช่รายละเอียดสินค้า — MANIFEST บางไฟล์พิมพ์ไว้ท้าย DESC ('*CARGO MOVEMENT 7*') ไม่นับในการเทียบ
-    const mv = s => String(s || "").toUpperCase().replace(/\*?\s*CARGO\s*MOVEMENT\s*[0-9A-Z\-]+\s*\*?/g, " ");
+    const mv = s => String(s || "").toUpperCase().replace(/\*?\s*CARGO\s*MOVEMENT\s*[:=]?\s*[0-9A-Z][0-9A-Z\-]*\s*\*?/g, " ");
     const na = mv(a).replace(/[^A-Z0-9]/g, ""), nb = mv(b).replace(/[^A-Z0-9]/g, "");
     if (!na && !nb) return null;
     return na === nb;
