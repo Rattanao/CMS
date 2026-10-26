@@ -177,6 +177,101 @@ full worked example of each:
   Its browser version lives at https://github.com/Rattanao/Penanshin (page at
   https://rattanao.github.io/Penanshin/; see "Web version" below). Any layout F change must
   keep both CMS/THE M CORP and Penanshin working, so rerun one job of each.
+- **Layout G** (`parse_enter_layout_g()`): DSV "AMENDMENT OF MANIFEST" — **one page per
+  B/L**. Each page has the B/L after `B/L CHANGED:`, the consignee below `Consignee` (up to
+  `Notify party`), and a printed `STATUS: "ลากตู้ด่วน" CY **HOT BOX**` line. Under
+  `Mark & Numbers` the columns are: marks x<175 | `40   Carton` 175–255 | desc 255–495 |
+  KGS/CBM ≥495. The container line `SKHU6375760 / 40'HC` sits at the bottom of the desc
+  column; it is pulled out as `cont`, not desc. Everything from `DSV Standard Terms` down is
+  dropped. Added 2026-10-15 (Heung-A HOCHIMINH 2610S job); the Cargoport, Gateway,
+  Penanshin, Quality and THE M CORP reports were unchanged.
+  The same job exposed a MANIFEST bug: the container-type-code filter (`45G0X1`) also
+  swallowed invoice lines like `V266411`. The filter now allows at most 1–3 more characters
+  after `[A-Z]\d`.
+
+- **Layout H** (`parse_enter_layout_h()`): MAC-NELS SHIPPING "ATTACHED SHEETS". The header is
+  `MARKS NO.` / `PACKAGES` / `DESCRIPTION OF GOODS`, and column edges are read from it. Each
+  block has goods rows, then `CONSIGNEE [n]` : name, then `CTRN NO` : container with
+  `G.W.: n KGS.` on the right, then `B/L NO` : B/L with `MEAS: n CBMS.` on the right. The
+  `B/L NO` row ends the block. Totals are `TOTAL PKGS/G.W./MEAS` on the last page. Without this
+  parser the generic fallback shifts every block by one B/L. Packaging `PLTS` maps to PALLET.
+  Verified 2026-10-15: 14/14 B/Ls passed, and Penanshin output was unchanged.
+  Its browser version lives at https://github.com/Rattanao/MAC-NELS (local folder
+  `Downloads/check edi-MAC-NELS`, page at https://rattanao.github.io/MAC-NELS/). It is the
+  Penanshin page with `parseEnter` swapped for a JS port of layout H (`isMacNelsSheet()`
+  rejects other forms) and `PLTS` → PALLET in `canonPkg`. Parity check 2026-10-15: 420/420
+  cells matched `build_edi.py`. Port any layout H change there too.
+
+- **Layout I** (`parse_enter_layout_i()`): UNION WORLD SHIPPING "AMENDMENT" (added 2026-10-19,
+  SAWASDEE MIMOSA 2610S job). It has the same `B/L CHANGE NO.` header as AGN layout D, but the
+  columns sit elsewhere, so layout D misreads it. It is identified **per page** by three things:
+  `B/L CHANGE NO.` at the far left, `HB/L NO` at x>650, and a `STATUS = ..` line in the HB/L
+  column. The ASIA ATLANTIC page in the hahm ENTER has the first two but not the third.
+  Column bands: B/L <100 | marks <255 | qty <340 | desc <485 | cons <610 | KGS/M3 <688 |
+  HB/L ≥688.
+  - The B/L is split across two lines: base `HASLC0126091463` with `8A` below it. Layout C and
+    the fallback parser turn that base into a fake B/L, so any key that is a strict prefix of a
+    layout-I B/L is dropped.
+  - The HB/L column holds the HB/L number, then the containers (comma-separated, sometimes
+    wrapped mid-number), then `STATUS = CY`. A Thai STATUS goes on the next line, and its
+    garbled `ҟ` is mapped back to `้`.
+  - The totals line is `TOTAL n PACKAGE(S) G.W n KGS. n M3`.
+  - Container check: when ENTER lists more than one container for a B/L, the whole set must
+    match MANIFEST.
+  - MANIFEST STATUS lines like `LCL CONSIGNEE'S LABOUR` now count as STATUS, not DESC.
+
+  Regression check: the Able, CMA, Cargoport, DSV, Gateway, MAC-NELS, Penanshin, Quality and
+  hahm reports are identical to the previous script, cell for cell including fills.
+  Browser version: repo https://github.com/Rattanao/Union-world (local folder
+  `Downloads/check edi-union world`), page at https://rattanao.github.io/Union-world/ once Pages
+  is enabled. See "Check EDI Union World" under "Web version" below. Port any layout I change
+  there too.
+
+- **Layout J** (`parse_enter_layout_j()`): LX PANTOS "AMENDMENT OF MANIFEST OF" (added 2026-10-19,
+  SAWASDEE ALTAIR 2609S job). It has **one B/L per page**, and the customer usually sends **one PDF
+  per B/L** (`ENTER <BL>.pdf`, `ENTER <BL>A.pdf`, …). The script takes one `--enter` file, so merge
+  them into a single PDF first (pymupdf `insert_pdf`, sorted by name length then name) and pass that.
+  It is gated on the text `LX PANTOS` + `AMENDMENT OF MANIFEST OF`. Per page: `B/L NO.` then
+  `: <BL>`; goods rows under `MARK` are marks x<195 | `10 PACKAGES` 195–335 | desc ≥335; the `(W:`
+  row has G.W. before `KGS./M :` and MEAS before `CBM.)`. The values for `CONSIGNEE` /
+  `NOTIFY PARTY` / `CONTAINER NO` / `STATUS` are at x≥130. `SAME AS ABOVE` notify = consignee.
+  STATUS reads like `***CY ลากตู้*** D/O รับแหลมฉบัง` (real Thai; it only looks garbled in the
+  cp874 console). There is no document-level total. Without this parser the generic fallback
+  missed the base B/L and read STATUS as `:`. Result: 7/7 B/Ls passed.
+
+- **Layout K** (`parse_enter_layout_k()`): UNITEX / Planet "AMENDMENT" form `FM-CSI-01` (added
+  2026-10-19, SAWASDEE MIMOSA 2610S job). It has the same `B/L CHANGE NO.` + `HB/L NO` header as
+  layout I, but it's identified per page by `CNTR NO.:` sitting in the MARKS column. Column bands:
+  B/L <100 | marks <255 | qty <340 | desc <485 | cons <600 | KGS/M3 <688 | HB/L ≥688.
+  - The B/L is split across two lines (`HASLC0126092` / `9665A`), so the tail can be up to 6
+    characters. Fake prefix keys from layout C or the fallback parser are dropped.
+  - The MARKS column holds the marks, then `CNTR NO.:`, then `SKLU2425120/20'GP`, then `STATUS: CY`.
+  - The last block stops 6pt above `TOTAL`, because `G.W n KGS.` sits a little above it and
+    otherwise leaks into CONSIGNEE.
+  - Result: 4/4 B/Ls passed. Layout K returns 0 B/Ls on the AGN, hahm, Union World and Cargoport
+    ENTERs, and the Union World report was identical cell for cell.
+
+- **Able (layout B variant) + MANIFEST as PDF** (added 2026-10-15). MANIFEST can now be a PDF
+  (`MANIFEST*.pdf`, a landscape "CARGO MANIFEST" printout). `_pdf_manifest_rows()` turns it into the
+  same row/column grid as the .xls (column chosen by each line's left edge on the rotated page). That
+  PDF has no `1)…4)` rule lines, so a transit B/L's ประเทศปลายทาง / CARGO MOVEMENT shows **orange**
+  "ไม่มีใน MANIFEST PDF" (check in the system), not red. The Able ENTER uses the layout B anchors
+  `CONSIGNEE :` / `CONT NO.  :` / `B/L  NO.  :`, but with these differences:
+  - The B/L suffix letter is a separate text item (`HASLK…293` + `A`). The parser joins them.
+  - Units sit on their own lines (`3,700.000` / `KGS.` / `9.740` / `CBM`).
+  - A `Notify Party :` section can appear between the consignee and CONT NO. It goes to `rec['notify']`.
+  - The typed notes `" CARGO MOVEMENT = 7 "` and `"... CODE 7 "` sit at the end of the page's text
+    stream. They are moved back to their real y position and become `movement_raw`.
+  - Some MARKS lines contain a description span at x≈217. These are split into two lines.
+
+  Moving lines back to their y position is limited to these MOVEMENT notes. Moving every line
+  broke Gateway and hahm. Regression check: all 11 other jobs gave identical results to the
+  previous script.
+
+**`--only-enter`:** when the MANIFEST covers the whole vessel and the ENTER covers only one
+customer (as with MAC-NELS, using the vessel MANIFEST from the hahm job), pass `--only-enter`.
+It drops other customers' B/Ls and skips the vessel GRAND TOTAL comparison, so the TOTAL row
+compares this consignment only.
 
 Both layouts also read **FreeText PDF annotations** (text the customer typed on top
 of the PDF, usually in red) and assign each one to whichever B/L block sits below it
@@ -339,7 +434,10 @@ in `parse_manifest()`.
   sentence with a recognized destination country (`DEST_CODE` table: LAOS→LA (user-confirmed 2026-10-12; was LL),
   MYANMAR→MM, CHINA→CN, MALAYSIA→MY, PHILIPPINES→PH, CAMBODIA→KH, MARSHALL ISLAND→MH,
   INDIA→IN). No transit sentence, or an unrecognized country → `-`, not checked.
-- **3) CARGO MOVEMENT** — TRANSIT to anywhere except Laos must read `(7-TRANSIT)`.
+- **3) CARGO MOVEMENT** — **TRANSHIPMENT always reads `(3-TRANSHIPMENT)`** (user rule,
+  2026-10-26), to any destination including Laos, whether the TRANSHIPMENT wording is in
+  MANIFEST or only in ENTER's transit text; this is checked before the INTRANSIT rules below.
+  TRANSIT to anywhere except Laos must read `(7-TRANSIT)`.
   TRANSIT to Laos is the one exception: MANIFEST's code (`7-TRANSIT` or
   `L-INTRANSIT TO LAOS`) must match whatever ENTER's own `CARGO MOVEMENT <n>` line says
   for that same B/L (plain printed text on the ENTER PDF, not a FreeText annotation —
@@ -375,6 +473,12 @@ branch → `main` / root; the root `index.html` redirects to `docs/`).
   20.6pt vs 56.6pt, so never hard-code absolute x): `rel < 100` → MARKS, `rel ≥ 100` →
   DESCRIPTION/values, `rel ≥ 300` → KGS/CBM column. Classify by **segment**, not by single
   word — long MARKS lines legitimately contain words far to the right.
+- **pdf.js splits words differently per file** (one Quality PDF gave `B/L NO.:` as one
+  item, another gave `B/L` + `NO.:` as two). Detect labels on the merged **row segments**
+  (`buildRows`), never on single items — a first version tested item-level and the live
+  page wrongly said "not a Quality form" for a valid file. Keep `parseManifest` in sync
+  with Python too (the container-type filter must stay `^\d{0,2}[A-Z]\d[A-Z0-9]{1,3}(?:\s|$)`,
+  otherwise real DESC lines like `F413GGNAF03P` / `C5102P:CU95/SN5%` get dropped).
 - Same report rules as the Python script: MARKS/DESC compared per pair with
   `sameDetail()` (spaces ignored), mismatch → orange on both documents' cells; TRANSIT
   column `-` when absent; consignee joined across wrapped lines; blocks may straddle a
@@ -399,6 +503,89 @@ once Pages is enabled.
   made-up ones (e.g. `HASLK01260000123`), as the Quality repo did.
 - On this PC, bash heredocs strip backslashes, so they corrupt regex code (`\b` became a
   backspace character). Make code edits with the Edit tool or a script file, never a heredoc.
+
+**Check EDI DSV** is another sibling page: repo `Rattanao/check-edi-DSV` (local folder
+`Downloads/check edi-DSV`), live at https://rattanao.github.io/check-edi-DSV/ (Pages: `main` /
+root, enabled 2026-10-15).
+- `docs/core.js` is the Penanshin port with its ENTER parser swapped for a JS version of
+  layout G. `isDsvAmendment()` accepts a file containing `AMENDMENT OF MANIFEST` and
+  `B/L CHANGED`. In a PDF that bundles several forms (e.g. the hahm job), only the DSV pages are
+  read. FreeText annotations apply to the B/L on the same page.
+- It also includes the MANIFEST type-code regex fix (`V266411` is no longer dropped).
+- 2026-10-15 parity check against `build_edi.py`: 168 of 168 report cells matched on the DSV
+  job, and 72 of 72 ENTER fields matched on the 6 DSV pages of the hahm job.
+- Don't name scratch scripts after stdlib modules (a scratch `html.py` broke `import pymupdf`).
+
+**Check EDI Able** is another sibling page: repo `Rattanao/check-edi-Able` (local folder
+`Downloads/check edi-Able`, pushed 2026-10-15), page at https://rattanao.github.io/check-edi-Able/
+once Pages is enabled (Settings → Pages → `main` / root).
+- `docs/core.js` is the MAC-NELS port with two changes:
+  - Its ENTER parser is replaced by a JS version of the Able layout-B variant, `isAbleForm()`.
+    pdf.js returns single words already sorted by position, so the parser groups them into rows,
+    then into segments (gap ≤ 20pt, and never across the MARKS|DESC line at 155pt right of the
+    `CONSIGNEE` label). The late-typed MOVEMENT notes need no reordering here.
+  - It also accepts a MANIFEST PDF: `isManifestPdf()` detects it, and `manifestRowsFromPdf()`
+    uses the same column edges as `_pdf_manifest_rows()`.
+- It includes the `no_rule_lines` orange review, the transit `-` fix and the type-code regex fix.
+- 2026-10-15 parity check against `build_edi.py` on the Able job: 588 of 588 cells matched
+  (values and fills). The page was also tested end to end in the browser, including the Excel
+  export.
+- On this PC, bash heredocs strip `\` from regexes. Edit `index.html`/`core.js` with the Edit tool.
+
+**Check EDI Union World** is another sibling page: repo `Rattanao/Union-world` (local folder
+`Downloads/check edi-union world`, pushed 2026-10-19), page at https://rattanao.github.io/Union-world/
+once Pages is enabled (Settings → Pages → `main` / root).
+- `docs/core.js` is the Able port. Its ENTER parser is replaced by a JS version of layout I
+  (`isUnionForm()` / `isUnionPage()` use the same per-page check as Python), and the global is
+  `window.CheckUnion`. `pageLines()` must **not** merge pdf.js items: the B/L number sits only ~5pt
+  left of the MARKS column, and merging glued them together (0 B/Ls found). `pdfPages()` already
+  joins touching pieces.
+- pdf.js places the `G.W … KGS.` total line slightly **above** `TOTAL`, so the declared total is read
+  from lines within ±12pt of `TOTAL`, sorted left to right.
+- It also has the multi-container set compare, the `LCL CONSIGNEE'S LABOUR` STATUS fix, and the
+  TOTAL-row note without a ⚠ prefix (matching Python). The Able, MAC-NELS, Penanshin, Quality and
+  DSV pages still add ⚠ to that note, a cosmetic mismatch only visible when totals differ.
+- **Header has the Heung A Line logo, same as the DO page** (https://rattanao.github.io/DO/): the logo
+  is `docs/assets/hal-logo.png` (747×129, copied from the DO site) in
+  `<span class="brand"><img …></span>` before the `<h1>`. `.brand` is a white rounded box (padding
+  5px 10px, img height 30px), `header .wrap` uses `align-items: center`, and `.by` is bold 15px. It
+  is also the favicon. Use the same header for any new sibling page.
+- 2026-10-19 parity check against `build_edi.py`: 364 of 364 cells matched (values and fills),
+  both without a SHED and with `--shed 0121`. The page was also tested end to end in the browser,
+  including the Excel export.
+- Real B/L and container numbers in the repo's `build_edi.py` comments were replaced with made-up
+  ones (`HASLC0126000012`, `HALU1234567`, …). The skill's own copy keeps the real numbers.
+
+**Check EDI Planet** is another sibling page: repo `Rattanao/Planet` (local folder
+`Downloads/check edi-Planet`, pushed 2026-10-19), live at https://rattanao.github.io/Planet/
+(Pages: `main` / root, enabled 2026-10-19).
+- `docs/core.js` is the Union World port. Its ENTER parser is replaced by a JS version of layout K
+  (`isPlanetForm()` / `isPlanetPage()` gate on `CNTR NO.:` in the MARKS band, the same per-page
+  check as Python), and the global is `window.CheckPlanet`. The header uses the same Heung A Line
+  logo as the DO page and Union World.
+- 2026-10-19 parity check against `build_edi.py`: 140 of 140 cells matched (values and fills), both
+  without a SHED and with `--shed 0122`. The page was also tested in the browser, including the Excel
+  export. It rejects the Union World, AGN and hahm ENTERs.
+- The repo's `build_edi.py` is the skill copy with real numbers scrubbed. A small mapping script
+  replaced them with made-up ones, and its output was confirmed identical to the skill copy's.
+- The preview server in `.claude/launch.json` must pass the same port in `runtimeArgs` as in `port`.
+  If the app reassigns the port, the page fails to load (`chrome-error`). Pick a free port instead.
+
+**Check EDI LX Pantos** is another sibling page: repo `Rattanao/LX-Pantos` (local folder
+`Downloads/check edi-LX Pantos`, pushed 2026-10-19), live at https://rattanao.github.io/LX-Pantos/
+(Pages: `main` / root, enabled 2026-10-19). It accepts **only the LX Pantos ENTER form** (user-confirmed).
+- `docs/core.js` is the Union World port. Its ENTER parser is replaced by a JS version of layout J
+  (`isLxForm()` / `isLxPage()`: `LX PANTOS` + `AMENDMENT OF MANIFEST OF` + a left `B/L NO.` + `MARK` + a
+  `(W:` row on the same page), and the global is `window.CheckLx`. The page accepts **many ENTER PDFs
+  at once** (one per B/L), so the user never has to merge them. pdf.js splits `PKG :10(GT)` into
+  `PKG` + `:10(GT)` and the STATUS into 3 pieces; `rowOrder()` puts pieces back into rows (|dy|<3) and
+  then left to right. A FreeText note applies to the B/L of its own page. The header uses the same
+  Heung A Line logo as the DO page.
+- 2026-10-19 parity check against `build_edi.py`: 224 of 224 cells matched (values and fills), without
+  a SHED, with `--shed 2813` and with `--shed 0141`. The page was tested in the browser with the 8 real
+  files, including the Excel export. It rejects the Union World ENTER.
+- The repo's `build_edi.py`, `core.js` comments and README example use made-up B/L, container and
+  consignee values.
 
 ## Reference
 
