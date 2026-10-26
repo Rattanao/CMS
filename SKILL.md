@@ -181,6 +181,18 @@ full worked example of each:
   Its browser version lives at https://github.com/Rattanao/Penanshin (page at
   https://rattanao.github.io/Penanshin/; see "Web version" below). Any layout F change must
   keep both CMS/THE M CORP and Penanshin working, so rerun one job of each.
+
+  **EASTERN AIR LOGISTICS** (added 2026-10-26) uses this same CMS-style form. Two fixes came
+  from it and from the CMS SKY ORION 2612S job:
+  - Some marks contain their own `CONSIGNEE:` line (`SHIPPER : ESA` / `CONSIGNEE:` / `J & U …`).
+    A CONSIGNEE row only counts as a block header if its own `CNTR NO:` row comes before the
+    next CONSIGNEE row. Otherwise that B/L's whole block was swallowed (B/L A came out empty,
+    5 pkgs / 824 kg short of ENTER's own total).
+  - `CARGO MOVEMENT: L` / `CARGO MOVEMENT: 7` is printed inside each B/L's goods block, above its
+    `D/O No.` row. Layout F reads it from the block itself (`_mv_local`), because the general
+    scanner ties a movement line to the B/L *above* it, which is the wrong B/L on this form.
+  - Every CARGO MOVEMENT reader (general scanner, DESC comparison, layout D filter) now accepts
+    `CARGO MOVEMENT 7`, `CARGO MOVEMENT: 7` and `CARGO MOVEMENT = 7`.
 - **Layout G** (`parse_enter_layout_g()`): DSV "AMENDMENT OF MANIFEST" — **one page per
   B/L**. Each page has the B/L after `B/L CHANGED:`, the consignee below `Consignee` (up to
   `Notify party`), and a printed `STATUS: "ลากตู้ด่วน" CY **HOT BOX**` line. Under
@@ -396,6 +408,35 @@ If the user asks for a formatting tweak that isn't covered above (a column width
 color, a reordering), make the change and treat it as durable for *this* report going
 forward, the same way the conventions above were built up — update this SKILL.md's
 list if the change seems likely to matter for the next job too, not just this one.
+
+## Regression check across every forwarder — run after ANY change to build_edi.py
+
+The user wants this skill to work for every forwarder's ENTER, so a fix for one form must not
+break another. Before changing `build_edi.py`, copy it (`cp scripts/build_edi.py /tmp/base.py`),
+make the change, then run:
+
+```bash
+python scripts/regress_all.py --base /tmp/base.py
+```
+
+It runs the old and new script on every `Downloads/check edi-*` job (input/ or job root; LX Pantos'
+per-B/L PDFs are merged first; jobs without both files are listed as SKIP) and prints every cell
+whose text or fill changed. Every difference must be explained by the intended change; anything
+else is a regression to fix before handing results to the user.
+
+Last full run 2026-10-26, 15 jobs (AGN-LAO, Able, CMA/CMS, Cargoport, DSV, Gateway, LX Pantos,
+MAC-NELS, Penanshin, Planet, Quality, Shipco, THE M CORP, hahm, union world): no errors, identical
+B/L and STATUS/DG/REEFER/TRANSIT counts; the only changes were the row-3 legend, the TOTAL label
+wording, and the intended CMS fixes. Eastern Air has an ENTER only (checked by parsing: 10/10 B/Ls,
+sums equal ENTER's own total). Macpro has no sample file.
+
+TOTAL row label: when the three sums match but other flags exist, it reads
+`⚠ ยอดรวมตรงกัน แต่มีจุดต้องตรวจ: TRANSIT n B/L, …` (still red), not "ยอดรวมไม่ตรง". "ยอดรวมไม่ตรง"
+is only for a real PACKAGE/G.W./MEAS. mismatch.
+
+MANIFEST block end: in the MARKS and DESCRIPTION columns only real footer text ends a B/L block
+(`PORT TOTAL`, `GRAND TOTAL`, `TOTAL PACK/GROSSWEIGHT/MEASUREMENT`, `PortOfDischarge`). Marks like
+`TOTAL 4 CTNS ONLY` used to end the block early and drop the container line below it.
 
 ## 4 extra fixed-rule checks (SHED NO. / ประเทศปลายทาง / CARGO MOVEMENT / TAX ID)
 

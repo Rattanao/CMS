@@ -396,7 +396,7 @@ def same_detail(a, b):
        True = ตรงกัน ; False = ไม่ตรง (เตือน) ; None = ไม่มีข้อความทั้งคู่."""
     # 'CARGO MOVEMENT n' เป็นรหัสศุลกากร ไม่ใช่รายละเอียดสินค้า — ENTER ตัดออกจาก DESC แต่ MANIFEST บางไฟล์พิมพ์ไว้
     # ท้าย DESC ('*CARGO MOVEMENT 7*') จึงไม่นับในการเทียบ (ยังแสดงในเซลล์ตามต้นฉบับ)
-    mv = lambda s: re.sub(r'\*?\s*CARGO\s*MOVEMENT\s*[0-9A-Z\-]+\s*\*?', ' ', str(s or '').upper())
+    mv = lambda s: re.sub(r'\*?\s*CARGO\s*MOVEMENT\s*[:=]?\s*[0-9A-Z][0-9A-Z\-]*\s*\*?', ' ', str(s or '').upper())
     na = re.sub(r'[^A-Z0-9]', '', mv(a))
     nb = re.sub(r'[^A-Z0-9]', '', mv(b))
     if not na and not nb:
@@ -699,7 +699,7 @@ def parse_enter(path, bl_re):
         for b in pg.get_text('dict')['blocks']:
             for l in b.get('lines', []):
                 t = ''.join(s['text'] for s in l['spans']).strip()
-                mmv = re.match(r'^CARGO\s*MOVEMENT\s*([0-9A-Za-z\-]+)$', t, re.I)
+                mmv = re.match(r'^CARGO\s*MOVEMENT\s*[:=]?\s*([0-9A-Za-z][0-9A-Za-z\-]*)$', t, re.I)   # 'CARGO MOVEMENT 7' / ': 7' / '= 7'
                 if mmv:
                     y = l['bbox'][1]
                     # ต่างจาก FreeText annotation (ผูกกับ anchor "ด้านล่าง") — ข้อความ "CARGO MOVEMENT n"
@@ -1362,6 +1362,11 @@ def parse_enter_layout_f(doc, bl_re, ent_annot):
         tot_y = min((y for y, x, t in items if re.match(r'^TOTAL\s+(?:QUANTITY|PKGS)\b', t, re.I)), default=1e9)
         cons_rows = [y for y, x, t in items if x < 60 and re.match(r'^CONSIGNEE(?:\s*\[\d+\])?\s*:?$', t, re.I)]
         cntr_rows = [y for y, x, t in items if x < 60 and re.match(r'^C(?:NTR|TRN)\s*NO\s*:?$', t, re.I)]
+        # แถว CONSIGNEE จริงของบล็อกต้องมีแถว CNTR NO ของตัวเองตามมาก่อนเจอ CONSIGNEE แถวถัดไป — 'CONSIGNEE:'
+        # ที่เป็นส่วนหนึ่งของ MARKS (Eastern Air: 'SHIPPER : ESA' / 'CONSIGNEE:' / 'J & U COMPANY LIMITED' ใน marks)
+        # ไม่ใช่หัวบล็อก ถ้านับเป็นหัวบล็อก เนื้อหาทั้งบล็อกจะถูกกินหายไปทั้ง B/L
+        cons_rows = [cy for i, cy in enumerate(cons_rows)
+                     if any(cy < y < (cons_rows[i + 1] if i + 1 < len(cons_rows) else 1e9) for y in cntr_rows)]
         start = -1e9
         last_end = max(cntr_rows, default=-1e9)
         if tot_y == 1e9:
@@ -1681,7 +1686,7 @@ def parse_enter_layout_d(doc, bl_re, ent_annot):
             # และมีคอลัมน์ CARGO MOVEMENT ของตัวเองอยู่แล้ว (ดึงแยกไว้ที่ ent_movement ข้างบน) เข้าเกณฑ์
             # เดียวกับที่ตัด STATUS/รหัสชนิดตู้ออกจาก DESCRIPTION (MANIFEST) ฝั่งเดียวกัน
             desc = ' '.join(t for y, x, t in band if _LD_QTY_MAX <= x < _LD_DESC_MAX
-                             and not re.match(r'^CARGO\s*MOVEMENT\s*[0-9A-Za-z\-]+$', t, re.I))
+                             and not re.match(r'^CARGO\s*MOVEMENT\s*[:=]?\s*[0-9A-Za-z][0-9A-Za-z\-]*$', t, re.I))
             cont_line = next((t for y, x, t in band if x < _LD_BL_X_MAX and re.search(r'Cont\s*No', t, re.I)), '')
 
             # CONSIGNEE และ 'NOTIFY:' ซ้อนอยู่คอลัมน์เดียวกัน — ตัดที่บรรทัด 'NOTIFY:' เอง
