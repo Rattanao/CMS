@@ -430,6 +430,16 @@ B/L and STATUS/DG/REEFER/TRANSIT counts; the only changes were the row-3 legend,
 wording, and the intended CMS fixes. Eastern Air has an ENTER only (checked by parsing: 10/10 B/Ls,
 sums equal ENTER's own total). Macpro has no sample file.
 
+**Rule changes must reach every website too.** Each forwarder site (rattanao.github.io/<name>:
+Cargoport, check-edi-AGN/Able/DSV/Quality/Shipco, Gateway, LX-Pantos, M-CORP, MAC-NELS,
+Penanshin, Planet, Union-world, CMS) has its own `core.js` JS port, and the hub
+**Check-MNF-Forwarder** carries a further copy of every tool under `tools/<name>/core.js`. A rule
+or reading fix in `build_edi.py` is not done until it is ported to all of them (they share the same
+function shapes: `checkMovement`, `extractTransitPhrase`, `parseManifest`'s `END` check,
+`buildReport`'s TOTAL row, `index.html`'s chip and Excel legend), then each site's old and new
+`core.js` are run on that forwarder's real job and every report cell compared, as for the Python
+script. Done 2026-10-26 for the 3-TRANSHIPMENT rule: 28 copies, only intended differences.
+
 TOTAL row label: when the three sums match but other flags exist, it reads
 `⚠ ยอดรวมตรงกัน แต่มีจุดต้องตรวจ: TRANSIT n B/L, …` (still red), not "ยอดรวมไม่ตรง". "ยอดรวมไม่ตรง"
 is only for a real PACKAGE/G.W./MEAS. mismatch.
