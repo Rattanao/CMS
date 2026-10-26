@@ -42,8 +42,12 @@ re-derive the format — run the script and follow the conventions below.
    them to close Excel before you copy it into place.
 3. Run:
    ```bash
-   python scripts/build_edi.py --manifest <path> --enter <path> --outdir <folder>
+   python scripts/build_edi.py --manifest <path> --enter <path> --outdir <job folder>/output
    ```
+   **Always write the finished `EDI.xlsx` into the job's `output/` folder** (sibling of
+   `input/`) — the user asked for this on every run (2026-10-26). Without `--outdir` the
+   script now defaults to that `output/` folder too; never leave the report in the job root
+   or a scratch folder as the final copy.
    (or with no args at all if both files sit in the current folder / an `input/`
    subfolder — it auto-detects them). It prints a summary: total B/Ls, how many rows
    need review, and a list of exactly what's wrong per B/L — relay that to the user

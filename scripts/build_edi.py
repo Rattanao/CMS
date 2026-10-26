@@ -91,6 +91,7 @@ def extract_transit_phrase(txt):
        คำสำคัญ + ปลายทางจริง (คำ TO ตัวสุดท้ายก่อนเจอ VIA/BY/FROM หรือจบประโยค)."""
     if not txt:
         return ''
+    txt = re.sub(r'\bLAO\s*P\.?\s*D\.?\s*R\.?', 'LAO PDR', txt, flags=re.I)   # จุดใน P.D.R. ไม่ใช่จบประโยค
     # TRANSHIPMENT มาก่อนเสมอถ้ามีทั้งสองคำ (เช่น "SHIP'S SPARE PART IN TRANSIT FOR M/V ... TRANSSHIPMENT
     # CARGO FROM BUSAN TO RABAUL") — ตรงกับกฎ CARGO MOVEMENT (3-TRANSHIPMENT) ที่ให้ TRANSHIPMENT ชนะ
     m = re.search(r'TRANS[\s-]?S?HIP(?:MENT)?', txt, re.I) or re.search(r'IN\s*TRANSIT', txt, re.I)
@@ -1147,7 +1148,8 @@ def parse_enter(path, bl_re):
             ENT[bl] = rec
 
     for rec in ENT.values():
-        rec['movement_raw'] = ent_movement.get(rec['bl'], '') or rec.get('movement_raw', '')
+        if not rec.get('_mv_local'):   # ค่าที่อ่านจากบล็อกของ B/L เอง (layout F) แม่นกว่าการผูกตามตำแหน่ง
+            rec['movement_raw'] = ent_movement.get(rec['bl'], '') or rec.get('movement_raw', '')
     return ENT, declared
 
 
@@ -1400,6 +1402,9 @@ def parse_enter_layout_f(doc, bl_re, ent_annot):
             pkgtype = mq.group(2).strip() if mq else ''
             rec = ent_annot.get(bl, {})
             combined = f'{marks} {desc}'.strip()
+            # 'CARGO MOVEMENT: L' / 'CARGO MOVEMENT: 7' พิมพ์อยู่ในบล็อกสินค้าของ B/L เอง (เหนือแถว D/O No.) —
+            # ตัวสแกนรวมใน parse_enter() ผูกกับ B/L "ด้านบน" ซึ่งผิดสำหรับฟอร์มนี้ และไม่รับเครื่องหมาย ':'
+            mvm = re.search(r'CARGO\s*MOVEMENT\s*:?\s*([0-9A-Za-z][0-9A-Za-z\-]*)', combined, re.I)
             ENT[bl] = {
                 'bl': bl, 'cons': cons.strip(), 'cont': cont, 'pkgs': pkgs, 'pkgtype': pkgtype,
                 'gw': gw, 'meas': meas, 'marks': marks.strip(), 'desc': desc.strip(),
@@ -1407,6 +1412,7 @@ def parse_enter_layout_f(doc, bl_re, ent_annot):
                 'transit_raw': rec.get('transit', '') or (combined if TRANSIT_RE.search(combined) else ''),
                 'dg': rec.get('dg', '') or find_dg(combined),
                 'reefer': rec.get('reefer', '') or find_temp(combined),
+                'movement_raw': mvm.group(1).upper() if mvm else '', '_mv_local': bool(mvm),
             }
     # annotation 'ทุกBL' ที่ถูกผูกกับ B/L ใกล้สุดตัวเดียว — ตัดคำกำกับขอบเขตออกให้เหลือแต่คำสั่ง STATUS
     if global_status:
@@ -2446,7 +2452,14 @@ def build_report(MAN, ENT, vessel, man_declared, ent_declared, outpath):
             for k in ('pkg', 'gw', 'meas') if k in man_declared))
     decl_txt = ('ยอดที่ระบุในเอกสาร — ' + '  |  '.join(decl_bits) + '  ||  ') if decl_bits else ''
 
-    trow = [(f'{OK} ยอดรวม ENTER = MANIFEST' if _all_ok else f'{WARN} ยอดรวมไม่ตรง — ตรวจด่วน'),
+    # ยอดรวมตรงกันแต่มีจุดอื่นต้องตรวจ (TRANSIT/DG/...) — อย่าเขียนว่า "ยอดรวมไม่ตรง" ให้เข้าใจผิด บอกให้ชัดว่าเป็นเรื่องอะไร
+    _flags = [f'{lbl} {TOT[k]} B/L' for k, lbl in (('st_bad', 'STATUS ไม่ตรง'), ('transit', 'TRANSIT'), ('dg', 'DG'),
+              ('reefer', 'REEFER'), ('shed_bad', 'SHED ไม่ตรง'), ('dest_bad', 'ปลายทางไม่ตรง'), ('mv_bad', 'MOVEMENT ไม่ตรง'),
+              ('mv_review', 'MOVEMENT ต้องตรวจ'), ('tax_bad', 'TAX ID ไม่ตรง')) if TOT[k]]
+    _tot_ok = pe_ok and ge_ok and me_ok
+    trow = [(f'{OK} ยอดรวม ENTER = MANIFEST' if _all_ok
+             else f'{WARN} ยอดรวมตรงกัน แต่มีจุดต้องตรวจ: ' + ', '.join(_flags) if _tot_ok
+             else f'{WARN} ยอดรวมไม่ตรง — ตรวจด่วน'),
             'TOTAL / ยอดรวม',
             f'{na} B/L ย่อย', f'{na} B/L ย่อย',
             f"{len(TOT['cte'])} ตู้: {_ct(TOT['cte'])}", f"{len(TOT['ctm'])} ตู้: {_ct(TOT['ctm'])}",
@@ -2570,7 +2583,9 @@ def main(argv=None):
         sys.exit(f'!! ไม่พบไฟล์ MANIFEST (.xls/.xlsx) — ระบุด้วย --manifest หรือวางไว้ในโฟลเดอร์นี้/input/')
     if not enter or not os.path.exists(enter):
         sys.exit(f'!! ไม่พบไฟล์ ENTER (.pdf) — ระบุด้วย --enter หรือวางไว้ในโฟลเดอร์นี้/input/')
-    outdir = a.outdir or os.path.dirname(manifest) or '.'
+    # ค่าเริ่มต้น: โฟลเดอร์ output/ ข้างโฟลเดอร์ input/ (หรือใน --indir) — ผู้ใช้ต้องการผลไว้ใน output ทุกครั้ง
+    mdir = os.path.dirname(os.path.abspath(manifest))
+    outdir = a.outdir or os.path.join(os.path.dirname(mdir) if os.path.basename(mdir).lower() == 'input' else mdir, 'output')
     os.makedirs(outdir, exist_ok=True)
     outpath = os.path.join(outdir, 'EDI.xlsx')
 

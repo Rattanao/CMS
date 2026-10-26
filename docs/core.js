@@ -33,6 +33,7 @@
   }
   function extractTransitPhrase(txt) {
     if (!txt) return "";
+    txt = txt.replace(/\bLAO\s*P\.?\s*D\.?\s*R\.?/gi, "LAO PDR");   // the dots in P.D.R. are not a sentence end
     // prefer TRANSHIPMENT when a sentence has both words — matches the 3-TRANSHIPMENT rule
     const m = txt.match(/(TRANS[\s-]?S?HIP(?:MENT)?)/i) || txt.match(/(IN\s*TRANSIT)/i);
     if (!m) return txt.replace(/\s+/g, " ").trim();
@@ -410,10 +411,12 @@
         const gwT = wm.find(t => /KG/i.test(t)), meT = wm.find(t => /CBM|M3/i.test(t));
         const qm = qty.match(QTY_RE);
         const combined = `${marks} ${desc}`;
+        // 'CARGO MOVEMENT: L' / 'CARGO MOVEMENT: 7' is printed inside this B/L's own goods block (above its D/O No. row)
+        const mvm = combined.match(/CARGO\s*MOVEMENT\s*:?\s*([0-9A-Za-z][0-9A-Za-z\-]*)/i);
         ENT[bl] = { bl, cons, cont, pkgs: qm ? parseInt(qm[1].replace(/,/g, ""), 10) : null, pkgtype: qm ? qm[2].trim() : "",
           gw: gwT ? num(gwT) : null, meas: meT ? num(meT) : null, marks, desc,
           status_raw: globalStatus, transit_raw: TRANSIT_RE.test(combined) ? combined : "",
-          dg: findDg(combined), reefer: findTemp(combined), movement_raw: "" };
+          dg: findDg(combined), reefer: findTemp(combined), movement_raw: mvm ? mvm[1].toUpperCase() : "" };
       }
     });
 
@@ -675,8 +678,14 @@
     if (entDecl && Object.keys(entDecl).length) dbits.push("ENTER: " + dtxt(entDecl));
     if (manDecl && Object.keys(manDecl).length) dbits.push("MANIFEST(GRAND TOTAL): " + dtxt(manDecl));
     const declTxt = dbits.length ? "ยอดที่ระบุในเอกสาร — " + dbits.join("  |  ") + "  ||  " : "";
+    // totals equal but other flags (TRANSIT/DG/...) — say what it is instead of "ยอดรวมไม่ตรง"
+    const flags = [["st_bad", "STATUS ไม่ตรง"], ["transit", "TRANSIT"], ["dg", "DG"], ["reefer", "REEFER"], ["shed_bad", "SHED ไม่ตรง"],
+      ["dest_bad", "ปลายทางไม่ตรง"], ["mv_bad", "MOVEMENT ไม่ตรง"], ["mv_review", "MOVEMENT ต้องตรวจ"], ["tax_bad", "TAX ID ไม่ตรง"]]
+      .filter(([k]) => TOT[k]).map(([k, l]) => `${l} ${TOT[k]} B/L`);
     const T = {
-      urgent: allOk ? `${OK} ยอดรวม ENTER = MANIFEST` : `${WARN} ยอดรวมไม่ตรง — ตรวจด่วน`, bl: "TOTAL / ยอดรวม",
+      urgent: allOk ? `${OK} ยอดรวม ENTER = MANIFEST`
+        : (peOk && geOk && meOk) ? `${WARN} ยอดรวมตรงกัน แต่มีจุดต้องตรวจ: ${flags.join(", ")}`
+        : `${WARN} ยอดรวมไม่ตรง — ตรวจด่วน`, bl: "TOTAL / ยอดรวม",
       cneeE: `${na} B/L ย่อย`, cneeM: `${na} B/L ย่อย`, tax: `TAX ID ไม่ตรง ${TOT.tax_bad} B/L`,
       cntE: `${Object.keys(TOT.cte).length} ตู้: ${ct(TOT.cte)}`, cntM: `${Object.keys(TOT.ctm).length} ตู้: ${ct(TOT.ctm)}`,
       stE: `STATUS ไม่ตรง ${TOT.st_bad} B/L`, stM: `STATUS ไม่ตรง ${TOT.st_bad} B/L`,
@@ -701,7 +710,7 @@
 
     const masterBl = sub.length ? sub.slice().sort((a, b) => a.length - b.length)[0] : "";
     return { rows, total: { cells: tcells }, crit, issueRows, count: na, vessel, masterBl, TOT,
-      stats: { bl: na, issue_rows: issueRows, allOk }, expectedShed: exShed };
+      stats: { bl: na, issue_rows: issueRows, allOk, totalsOk: peOk && geOk && meOk }, expectedShed: exShed };
   }
 
   // ───────────── อ่าน PDF ด้วย pdf.js → pages [{items:[{x,y,t}], annots:[{y,text}]}] ─────────────

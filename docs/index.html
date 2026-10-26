@@ -192,7 +192,7 @@ function renderResult() {
     `<div class="k">CONTAINER</div><div>${esc(conts.join(", ") || "-")}</div>`;
   $("chips").innerHTML =
     `<span class="chip all">ทั้งหมด ${count} B/L</span><span class="chip bad">⚠ ต้องตรวจ ${issueRows}</span><span class="chip ok">✔ ผ่าน ${count - issueRows}</span>` +
-    (total.cells.urgent.s === "grn" ? `<span class="chip ok">ยอดรวมตรงกัน</span>` : `<span class="chip bad">⚠ ยอดรวมไม่ตรง</span>`);
+    (report.stats.totalsOk ? `<span class="chip ok">ยอดรวมตรงกัน</span>` : `<span class="chip bad">⚠ ยอดรวมไม่ตรง</span>`);
   $("thead").innerHTML = "<tr>" + C.HEADERS.map((h, i) => `<th class="${i < 2 ? "s" + i : ""}">${esc(h)}</th>`).join("") + "</tr>";
   drawRows();
   $("result").classList.remove("hidden");
